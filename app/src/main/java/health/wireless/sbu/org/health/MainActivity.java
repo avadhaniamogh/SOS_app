@@ -30,6 +30,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Sensor senAccelerometer;
     LocationManager locationManager;
     private Sensor magnetometer;
+    private Double previousAcceleration = null;
+    private boolean isDecreasing = false;
+    private boolean hasHitGround = false;
+    private long hitTime;
+    private long decreaseTime;
 
     @BindView(R.id.x)
     TextView accelerometer_x_textview;
@@ -98,20 +103,59 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
             Log.d(TAG, "Values " + "x: " + x + ", " + "y: " + y + ", " + "z: " + z);
 
+            // Calculate acceleration
+            double acceleration = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2));
+            // initializing previousAcceleration
+            if (previousAcceleration == null) {
+                previousAcceleration = acceleration;
+            } else {
+                // If device has not hit the ground
+                if(!hasHitGround) {
+                    // Detecting fall
+                    if ((previousAcceleration - acceleration) > 3 && !isDecreasing) {
+                        isDecreasing = true;
+                        decreaseTime = System.currentTimeMillis();
+                        Log.d(TAG, "Events Detecting fall" + "previous: " + previousAcceleration + " current: " + acceleration + " current time: " + System.currentTimeMillis());
+                        // Detecting spike
+                    } else if (acceleration - previousAcceleration > 3 && isDecreasing) {
+                        // Wait for 200 ms
+                        if(System.currentTimeMillis() - decreaseTime > 20) {
+                            Log.d(TAG, "Events Detecting spike" + "previous: " + previousAcceleration + " current: " + acceleration + " current time: " + System.currentTimeMillis());
+                            hasHitGround = true;
+                            hitTime = System.currentTimeMillis();
+                            // Reset isDecreasing
+                        } else {
+                            Log.d(TAG, "Events Reset decreasing" + "previous: " + previousAcceleration + " current: " + acceleration + " current time: " + System.currentTimeMillis());
+                            isDecreasing = false;
+                        }
+                    }
+                    // Waiting for 2000ms
+                } else {
+                    if(System.currentTimeMillis() - hitTime > 2000) {
+                        if(Math.abs(previousAcceleration - acceleration) < 0.5) {
+                            Log.d(TAG, "Events Raise event" + "previous: " + previousAcceleration + " current: " + acceleration + " current time: " + System.currentTimeMillis());
+                            hasHitGround = false;
+                            isDecreasing = false;
+                        }
+                    }
+                }
+                previousAcceleration = acceleration;
+            }
+
             Handler handler = new Handler(Looper.getMainLooper());
             handler.post(new Runnable() {
                 public void run() {
-                    if(accelerometer_x_textview != null) {
+                    if (accelerometer_x_textview != null) {
                         String x_str = Float.toString(x);
                         accelerometer_x_textview.setText(x_str);
                     }
 
-                    if(accelerometer_y_textview != null) {
+                    if (accelerometer_y_textview != null) {
                         String y_str = Float.toString(y);
                         accelerometer_y_textview.setText(y_str);
                     }
 
-                    if(accelerometer_z_textview != null) {
+                    if (accelerometer_z_textview != null) {
                         String z_str = Float.toString(z);
                         accelerometer_z_textview.setText(z_str);
                     }
@@ -142,17 +186,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         final float finalRoll = roll;
         handler.post(new Runnable() {
             public void run() {
-                if(accelerometer_x_textview != null) {
+                if (accelerometer_x_textview != null) {
                     String azimuth_str = Float.toString(finalAzimuth);
                     azimuth_textview.setText(azimuth_str);
                 }
 
-                if(accelerometer_y_textview != null) {
+                if (accelerometer_y_textview != null) {
                     String pitch_str = Float.toString(finalPitch);
                     pitch_textview.setText(pitch_str);
                 }
 
-                if(accelerometer_z_textview != null) {
+                if (accelerometer_z_textview != null) {
                     String roll_str = Float.toString(finalRoll);
                     roll_textview.setText(roll_str);
                 }
